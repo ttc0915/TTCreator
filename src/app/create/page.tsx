@@ -115,7 +115,7 @@ function CreatePageComponent() {
             delete pollingIntervals.current[task.taskId!];
         }
       } catch (error) {
-          // 可选：处理错误
+          console.error(error);
         }
       };
       // 立即执行一次，然后每60秒轮询

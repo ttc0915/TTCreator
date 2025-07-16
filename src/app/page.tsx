@@ -15,7 +15,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useState, useEffect } from "react";
 
 export default function Home() {
-  const { language, setLanguage, t } = useLanguage();
+  const { setLanguage, t } = useLanguage();
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   
