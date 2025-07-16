@@ -118,7 +118,7 @@ function CreatePageComponent() {
               pollingIntervals.current[task.taskId as string] = setTimeout(pollStatus, 60000);
             }
           }
-        } catch (error) {
+        } catch {
           setMessages((prev) =>
             prev.map((msg) =>
               msg.taskId === task.taskId
