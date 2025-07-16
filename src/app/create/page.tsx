@@ -78,11 +78,11 @@ function CreatePageComponent() {
 
     loadingTasks.forEach((task) => {
       if (pollingIntervals.current[task.taskId!]) return; // 已有定时器则跳过
-      const pollStatus = async () => {
-        try {
+    const pollStatus = async () => {
+      try {
           const statusResponse = await fetch(`/api/status/${task.taskId}`);
-          const data = await statusResponse.json();
-          if (data.status === 'completed') {
+        const data = await statusResponse.json();
+        if (data.status === 'completed') {
             let imageUrls = [];
             if (data.extracted_links && Array.isArray(data.extracted_links)) {
               imageUrls = data.extracted_links;
@@ -93,28 +93,28 @@ function CreatePageComponent() {
             } else if (data.image_urls && Array.isArray(data.image_urls)) {
               imageUrls = data.image_urls;
             }
-            setMessages((prev) =>
-              prev.map((msg) =>
+          setMessages((prev) =>
+            prev.map((msg) =>
                 msg.taskId === task.taskId
                   ? { ...msg, isLoading: false, imageUrls }
-                  : msg
-              )
-            );
+                : msg
+            )
+          );
             clearInterval(pollingIntervals.current[task.taskId!]);
             delete pollingIntervals.current[task.taskId!];
-          } else if (data.status === 'failed') {
-            const errorMessage = data.result?.error || 'Unknown error occurred.';
-            setMessages((prev) =>
-              prev.map((msg) =>
+        } else if (data.status === 'failed') {
+          const errorMessage = data.result?.error || 'Unknown error occurred.';
+          setMessages((prev) =>
+            prev.map((msg) =>
                 msg.taskId === task.taskId
-                  ? { ...msg, isLoading: false, text: `Error: ${errorMessage}` }
-                  : msg
-              )
-            );
+                ? { ...msg, isLoading: false, text: `Error: ${errorMessage}` }
+                : msg
+            )
+          );
             clearInterval(pollingIntervals.current[task.taskId!]);
             delete pollingIntervals.current[task.taskId!];
-          }
-        } catch (error) {
+        }
+      } catch (error) {
           // 可选：处理错误
         }
       };
@@ -128,7 +128,7 @@ function CreatePageComponent() {
       if (!loadingTasks.find((msg) => msg.taskId === taskId)) {
         clearInterval(pollingIntervals.current[taskId]);
         delete pollingIntervals.current[taskId];
-      }
+        }
     });
 
     // 组件卸载时清理所有定时器
