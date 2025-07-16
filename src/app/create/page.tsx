@@ -39,6 +39,7 @@ function CreatePageComponent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const pollingIntervals = useRef<{ [taskId: string]: NodeJS.Timeout }>({});
 
   // Load messages from localStorage on initial client render
   useEffect(() => {
@@ -70,19 +71,21 @@ function CreatePageComponent() {
     }
   }, [initialPrompt]);
 
-  const pollingIntervals = useRef<{ [taskId: string]: NodeJS.Timeout }>({});
-
+  // 新增：为每个未完成的任务单独轮询
   useEffect(() => {
-    // 找到所有未完成的任务
-    const loadingTasks = messages.filter((msg) => msg.isLoading && msg.taskId);
+    // 清理所有旧的定时器
+    Object.values(pollingIntervals.current).forEach(clearTimeout);
+    pollingIntervals.current = {};
 
-    loadingTasks.forEach((task) => {
-      if (pollingIntervals.current[task.taskId!]) return; // 已有定时器则跳过
-    const pollStatus = async () => {
-      try {
-          const statusResponse = await fetch(`/api/status/${task.taskId}`);
-        const data = await statusResponse.json();
-        if (data.status === 'completed') {
+    // 找到所有未完成的任务
+    const loadingTasks = messages.filter(msg => msg.isLoading && msg.taskId);
+
+    loadingTasks.forEach(task => {
+      const pollStatus = async () => {
+        try {
+          const statusResponse = await fetch(`https://dreamina-worker.taylortang458303.workers.dev/api/status/${task.taskId}`);
+          const data = await statusResponse.json();
+          if (data.status === 'completed') {
             let imageUrls = [];
             if (data.extracted_links && Array.isArray(data.extracted_links)) {
               imageUrls = data.extracted_links;
@@ -93,47 +96,44 @@ function CreatePageComponent() {
             } else if (data.image_urls && Array.isArray(data.image_urls)) {
               imageUrls = data.image_urls;
             }
-          setMessages((prev) =>
-            prev.map((msg) =>
+            setMessages((prev) =>
+              prev.map((msg) =>
                 msg.taskId === task.taskId
                   ? { ...msg, isLoading: false, imageUrls }
-                : msg
-            )
-          );
-            clearInterval(pollingIntervals.current[task.taskId!]);
-            delete pollingIntervals.current[task.taskId!];
-        } else if (data.status === 'failed') {
-          const errorMessage = data.result?.error || 'Unknown error occurred.';
+                  : msg
+              )
+            );
+          } else if (data.status === 'failed') {
+            const errorMessage = data.result?.error || 'Unknown error occurred.';
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.taskId === task.taskId
+                  ? { ...msg, isLoading: false, text: `Error: ${errorMessage}` }
+                  : msg
+              )
+            );
+          } else {
+            // 继续轮询
+            if (task.taskId) {
+              pollingIntervals.current[task.taskId as string] = setTimeout(pollStatus, 60000);
+            }
+          }
+        } catch (error) {
           setMessages((prev) =>
             prev.map((msg) =>
-                msg.taskId === task.taskId
-                ? { ...msg, isLoading: false, text: `Error: ${errorMessage}` }
+              msg.taskId === task.taskId
+                ? { ...msg, isLoading: false, text: `Error polling status.` }
                 : msg
             )
           );
-            clearInterval(pollingIntervals.current[task.taskId!]);
-            delete pollingIntervals.current[task.taskId!];
-        }
-      } catch (error) {
-          console.error(error);
         }
       };
-      // 立即执行一次，然后每60秒轮询
       pollStatus();
-      pollingIntervals.current[task.taskId!] = setInterval(pollStatus, 60000);
     });
 
-    // 清理已完成/失败任务的定时器
-    Object.keys(pollingIntervals.current).forEach((taskId) => {
-      if (!loadingTasks.find((msg) => msg.taskId === taskId)) {
-        clearInterval(pollingIntervals.current[taskId]);
-        delete pollingIntervals.current[taskId];
-        }
-    });
-
-    // 组件卸载时清理所有定时器
+    // 清理函数：组件卸载或messages变化时清理所有定时器
     return () => {
-      Object.values(pollingIntervals.current).forEach(clearInterval);
+      Object.values(pollingIntervals.current).forEach(clearTimeout);
       pollingIntervals.current = {};
     };
   }, [messages]);
@@ -151,7 +151,7 @@ function CreatePageComponent() {
       setMessages((prev) => [...prev, userMessage]);
 
       try {
-        const response = await fetch('/api/generate', {
+        const response = await fetch('https://dreamina-worker.taylortang458303.workers.dev/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: p, aspect_ratio: aspectRatio }), // 注意参数名

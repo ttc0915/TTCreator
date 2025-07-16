@@ -130,7 +130,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (initialLang !== language) {
         setLanguageState(initialLang);
     }
-  }, [language]); // Empty dependency array ensures this runs only once on the client
+  }, []); // Empty dependency array ensures this runs only once on the client
 
 
   const setLanguage = (lang: Language) => {
